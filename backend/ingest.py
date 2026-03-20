@@ -3,7 +3,7 @@ import json
 import os
 import uuid
 
-CHUNKS_DIR = "../data/chunks"
+CHUNKS_DIR = "data/chunks"
 os.makedirs(CHUNKS_DIR, exist_ok=True)
 
 def extract_text(pdf_path: str) -> list:

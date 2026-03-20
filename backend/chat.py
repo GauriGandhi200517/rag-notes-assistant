@@ -1,4 +1,5 @@
 import requests
+import os
 from search import search
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -24,16 +25,24 @@ Answer:"""
 def chat(question: str, top_k: int = 5) -> dict:
     chunks = search(question, top_k)
     prompt = build_prompt(question, chunks)
-    
-    response = requests.post(OLLAMA_URL, json={
-        "model": MODEL,
-        "prompt": prompt,
-        "stream": False
-    })
-    
-    result = response.json()
-    answer = result.get("response", "No response from model")
-    
+
+    # Try Ollama first (local), fall back to simple extraction
+    try:
+        response = requests.post(OLLAMA_URL, json={
+            "model": MODEL,
+            "prompt": prompt,
+            "stream": False
+        }, timeout=30)
+        answer = response.json().get("response", "")
+        if not answer:
+            raise Exception("Empty response")
+    except:
+        # Fallback: return best chunk text as answer
+        if chunks:
+            answer = f"Based on the documents: {chunks[0]['text'][:300]}"
+        else:
+            answer = "I could not find this in the provided documents."
+
     sources = [
         {
             "doc_name": c["doc_name"],
@@ -43,8 +52,5 @@ def chat(question: str, top_k: int = 5) -> dict:
         }
         for c in chunks
     ]
-    
-    return {
-        "answer": answer,
-        "sources": sources
-    }
+
+    return {"answer": answer, "sources": sources}
