@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pymupdf
 python-multipart
+sentence-transformers
+faiss-cpu
 numpy
 requests
-huggingface-hub
