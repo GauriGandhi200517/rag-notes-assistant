@@ -1,0 +1,42 @@
+[
+  {
+    "question": "What is data mining?",
+    "keyword_score": 1.0,
+    "has_answer": true,
+    "source_count": 5,
+    "latency_seconds": 12.72,
+    "answer_preview": "Data mining involves extracting meaningful patterns, insights, and knowledge from large datasets.\nIt"
+  },
+  {
+    "question": "What is WEKA?",
+    "keyword_score": 0.5,
+    "has_answer": true,
+    "source_count": 5,
+    "latency_seconds": 13.15,
+    "answer_preview": "Weka is an open-source system for learning and data manipulation. It was designed to be user-friendl"
+  },
+  {
+    "question": "What is classification?",
+    "keyword_score": 0.75,
+    "has_answer": true,
+    "source_count": 5,
+    "latency_seconds": 15.8,
+    "answer_preview": "Classification is a process of finding or discovering a model or function that helps in separating d"
+  },
+  {
+    "question": "What is DBMiner?",
+    "keyword_score": 1.0,
+    "has_answer": true,
+    "source_count": 5,
+    "latency_seconds": 12.42,
+    "answer_preview": "DBMiner is a data mining system developed by DBLearn. It is designed for interactive mining of multi"
+  },
+  {
+    "question": "What is clustering?",
+    "keyword_score": 1.0,
+    "has_answer": true,
+    "source_count": 5,
+    "latency_seconds": 15.01,
+    "answer_preview": "Clustering is the process of grouping similar instances together based on their shared characteristi"
+  }
+]
