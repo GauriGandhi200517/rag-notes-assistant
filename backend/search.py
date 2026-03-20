@@ -1,17 +1,20 @@
+import json
 import os
-os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/models"import json, os, faiss, numpy as np
-from sentence_transformers
-import SentenceTransformer
+import faiss
+import numpy as np
+from sentence_transformers import SentenceTransformer
 
-MODEL_NAME = "paraphrase-MiniLM-L3-v2"
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/models"
+
+MODEL_NAME = "all-MiniLM-L6-v2"
 INDEX_PATH = "index/faiss.index"
 META_PATH  = "index/metadata.json"
 CHUNKS_DIR = "data/chunks"
 
 os.makedirs("index", exist_ok=True)
 
-
 model = SentenceTransformer(MODEL_NAME)
+
 
 def load_all_chunks() -> list:
     all_chunks = []
