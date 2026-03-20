@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import shutil, tempfile, os
 from ingest import ingest_pdf
 from search import build_index, search
+from chat import chat as rag_chat
 
 app = FastAPI()
 
@@ -35,3 +36,7 @@ def build():
 def search_chunks(query: str, top_k: int = 5):
     results = search(query, top_k)
     return {"results": results}
+@app.post("/chat")
+def chat(question: str):
+    result = rag_chat(question)
+    return result
