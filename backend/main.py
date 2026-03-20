@@ -1,9 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import shutil, tempfile, os
-from ingest import ingest_pdf
-from search import build_index, search
-from chat import chat as rag_chat
 
 app = FastAPI()
 
@@ -20,6 +17,7 @@ def health():
 
 @app.post("/ingest")
 async def ingest(file: UploadFile = File(...)):
+    from ingest import ingest_pdf
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
@@ -29,14 +27,18 @@ async def ingest(file: UploadFile = File(...)):
 
 @app.post("/build-index")
 def build():
+    from search import build_index
     count = build_index()
     return {"status": "ok", "chunks_indexed": count}
 
 @app.post("/search")
 def search_chunks(query: str, top_k: int = 5):
+    from search import search
     results = search(query, top_k)
     return {"results": results}
+
 @app.post("/chat")
 def chat(question: str):
+    from chat import chat as rag_chat
     result = rag_chat(question)
     return result
