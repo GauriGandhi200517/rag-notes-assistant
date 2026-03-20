@@ -1,7 +1,7 @@
 import json, os, faiss, numpy as np
 from sentence_transformers import SentenceTransformer
 
-MODEL_NAME = "all-MiniLM-L6-v2"
+MODEL_NAME = "paraphrase-MiniLM-L3-v2"
 INDEX_PATH = "index/faiss.index"
 META_PATH  = "index/metadata.json"
 CHUNKS_DIR = "data/chunks"

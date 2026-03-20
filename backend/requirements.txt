@@ -6,3 +6,4 @@ sentence-transformers
 faiss-cpu
 numpy
 requests
+torch --index-url https://download.pytorch.org/whl/cpu
