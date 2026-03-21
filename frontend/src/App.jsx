@@ -19,24 +19,14 @@ function Confetti({ active }) {
     <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 9999, overflow: "hidden" }}>
       {pieces.map(p => (
         <div key={p.id} style={{
-          position: "absolute",
-          left: `${p.left}%`,
-          top: "-20px",
-          width: p.size,
-          height: p.size,
-          background: p.color,
+          position: "absolute", left: `${p.left}%`, top: "-20px",
+          width: p.size, height: p.size, background: p.color,
           borderRadius: Math.random() > 0.5 ? "50%" : "2px",
           animation: `fall ${p.duration}s ${p.delay}s ease-in forwards`,
-          transform: `rotate(${p.rotate}deg)`,
-          opacity: 0.9,
+          transform: `rotate(${p.rotate}deg)`, opacity: 0.9,
         }} />
       ))}
-      <style>{`
-        @keyframes fall {
-          0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-          100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
-        }
-      `}</style>
+      <style>{`@keyframes fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }`}</style>
     </div>
   );
 }
@@ -53,11 +43,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("chat");
   const [quiz, setQuiz] = useState([]);
   const [quizLoading, setQuizLoading] = useState(false);
+  const [quizProgress, setQuizProgress] = useState(0);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [correctFlash, setCorrectFlash] = useState(null);
+  const [showToast, setShowToast] = useState(false);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -100,37 +92,49 @@ export default function App() {
   async function generateQuiz() {
     if (!indexed) return alert("Please upload a document first!");
     setQuizLoading(true);
+    setQuizProgress(0);
     setQuiz([]); setAnswers({}); setSubmitted(false); setScore(0);
-    const topics = [
-      "what is the main definition or introduction",
-      "what are the key components or parts",
-      "what are the types or categories",
-      "what are the main applications or uses",
-      "what are the important features or characteristics"
-    ];
-    const generatedQuiz = [];
-    for (let i = 0; i < 5; i++) {
-      try {
-        const res = await axios.post(`${API}/chat?question=Create one multiple choice question about: ${topics[i]}. Use exactly this format:\nQ: [your question here]\nA) [option 1]\nB) [option 2]\nC) [option 3]\nD) [option 4]\nAnswer: [A or B or C or D]`);
-        const parsed = parseQuizQuestion(res.data.answer, i);
-        if (parsed) generatedQuiz.push(parsed);
-      } catch (e) { console.error(e); }
-    }
-    if (generatedQuiz.length === 0) {
-      setQuiz([{
-        id: 0,
-        question: "What type of document did you upload?",
-        options: [
-          { label: "A", text: "A PDF document or notes" },
-          { label: "B", text: "A spreadsheet" },
-          { label: "C", text: "A video file" },
-          { label: "D", text: "An audio file" }
-        ],
-        correct: "A"
-      }]);
-    } else {
-      setQuiz(generatedQuiz);
-    }
+
+    try {
+      setQuizProgress(20);
+      const res = await axios.post(`${API}/quiz?topic=main concepts definitions types applications`);
+      setQuizProgress(80);
+      const rawQuestions = res.data.questions || [];
+      const generatedQuiz = rawQuestions.map((q, i) => parseQuizQuestion(q, i)).filter(Boolean);
+      setQuizProgress(100);
+
+      if (generatedQuiz.length === 0) {
+        const searchRes = await axios.post(`${API}/search?query=definition concept introduction&top_k=5`);
+        const chunks = (searchRes.data.results || []).slice(0, 4);
+        const fallbackQuiz = chunks.map((chunk, i) => {
+          const text = chunk.text.replace(/\n/g, " ").trim();
+          return {
+            id: i,
+            question: `What does this passage from page ${chunk.page} describe? "${text.slice(0, 60)}..."`,
+            options: [
+              { label: "A", text: text.slice(0, 100) },
+              { label: "B", text: "This describes a mathematical formula" },
+              { label: "C", text: "This describes a cooking recipe" },
+              { label: "D", text: "This describes a sports event" }
+            ],
+            correct: "A"
+          };
+        });
+        setQuiz(fallbackQuiz.length > 0 ? fallbackQuiz : [{
+          id: 0,
+          question: "What is the main subject of this document?",
+          options: [
+            { label: "A", text: "The topic covered in this uploaded document" },
+            { label: "B", text: "A completely unrelated subject" },
+            { label: "C", text: "A cooking recipe book" },
+            { label: "D", text: "A travel guide" }
+          ],
+          correct: "A"
+        }]);
+      } else {
+        setQuiz(generatedQuiz);
+      }
+    } catch (e) { console.error(e); }
     setQuizLoading(false);
   }
 
@@ -157,7 +161,8 @@ export default function App() {
     if (label === correct) {
       setCorrectFlash(qId);
       setShowConfetti(true);
-      setTimeout(() => { setShowConfetti(false); setCorrectFlash(null); }, 2500);
+      setShowToast(true);
+      setTimeout(() => { setShowConfetti(false); setCorrectFlash(null); setShowToast(false); }, 2500);
     }
   }
 
@@ -181,6 +186,8 @@ export default function App() {
   return (
     <>
       <Confetti active={showConfetti} />
+      {showToast && <div style={{ position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#059669,#34d399)", color: "white", padding: "12px 28px", borderRadius: 50, fontSize: 15, fontWeight: 600, zIndex: 9998, boxShadow: "0 8px 32px rgba(52,211,153,0.4)", fontFamily: "'Syne',sans-serif", animation: "toastIn 0.3s ease" }}>🎉 Correct! Well done!</div>}
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -188,6 +195,7 @@ export default function App() {
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; }
+        @keyframes toastIn { 0%{transform:translateX(-50%) translateY(-20px);opacity:0} 100%{transform:translateX(-50%) translateY(0);opacity:1} }
         .app { display: flex; height: 100vh; font-family: 'DM Sans', sans-serif; background: #080c14; color: #e8edf5; overflow: hidden; }
         .sidebar { width: 280px; min-width: 280px; background: #0d1421; border-right: 1px solid #111d2e; display: flex; flex-direction: column; padding: 24px 18px; gap: 20px; }
         .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: #e8edf5; letter-spacing: -0.5px; }
@@ -262,12 +270,14 @@ export default function App() {
         .generate-btn { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
         .generate-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
         .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .progress-bar { height: 4px; background: #111d2e; border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #3b82f6); border-radius: 2px; transition: width 0.5s ease; }
         .quiz-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 60px 40px; text-align: center; }
         .quiz-empty-icon { font-size: 52px; }
         .quiz-empty-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #1e3a5f; }
         .quiz-empty-sub { font-size: 13px; color: #162032; max-width: 260px; line-height: 1.6; }
         .question-card { background: #0d1421; border: 1px solid #111d2e; border-radius: 16px; padding: 20px; transition: all 0.3s; }
-        .question-card.flash { border-color: #34d399; box-shadow: 0 0 20px rgba(52, 211, 153, 0.3); }
+        .question-card.flash { border-color: #34d399; box-shadow: 0 0 20px rgba(52,211,153,0.3); }
         .question-num { font-size: 11px; color: #4a6080; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
         .question-text { font-size: 15px; color: #e8edf5; line-height: 1.6; margin-bottom: 16px; font-weight: 500; }
         .options { display: flex; flex-direction: column; gap: 8px; }
@@ -283,8 +293,6 @@ export default function App() {
         .option.correct .option-label { background: #14532d; color: #34d399; }
         .option.wrong .option-label { background: #450a0a; color: #ef4444; }
         .option-text { font-size: 13px; color: #d1d9e6; }
-        .correct-toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #059669, #34d399); color: white; padding: 12px 24px; border-radius: 50px; font-size: 15px; font-weight: 600; font-family: 'Syne', sans-serif; z-index: 9998; animation: toastIn 0.3s ease; box-shadow: 0 8px 32px rgba(52,211,153,0.4); }
-        @keyframes toastIn { 0%{transform:translateX(-50%) translateY(-20px);opacity:0} 100%{transform:translateX(-50%) translateY(0);opacity:1} }
         .score-card { background: linear-gradient(135deg, #0a1f3c, #0d1421); border: 1px solid #1e3a5f; border-radius: 16px; padding: 24px; text-align: center; }
         .score-emoji { font-size: 48px; margin-bottom: 12px; }
         .score-text { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: #e8edf5; }
@@ -299,15 +307,12 @@ export default function App() {
         @media (max-width: 768px) {
           .app { flex-direction: column; height: 100dvh; }
           .sidebar { width: 100% !important; min-width: unset !important; padding: 10px 14px !important; gap: 8px !important; border-right: none !important; border-bottom: 1px solid #111d2e !important; flex-direction: row !important; flex-wrap: wrap !important; align-items: center !important; }
-          .logo { display: none; }
-          .logo-sub { display: none; }
+          .logo { display: none; } .logo-sub { display: none; }
           .upload-zone { padding: 8px !important; flex: 1; min-width: 130px; }
           .upload-icon { font-size: 16px !important; margin-bottom: 2px !important; }
           .upload-text { font-size: 10px !important; }
           .upload-btn { width: auto !important; padding: 9px 14px !important; font-size: 12px !important; white-space: nowrap; }
-          .doc-card { display: none !important; }
-          .clear-btn { display: none !important; }
-          .uploading-bar { font-size: 10px !important; }
+          .doc-card { display: none !important; } .clear-btn { display: none !important; }
           .messages { padding: 14px !important; gap: 12px !important; }
           .quiz-area { padding: 14px !important; }
           .msg-bubble { max-width: 90% !important; font-size: 13px !important; }
@@ -320,10 +325,6 @@ export default function App() {
           .tab { flex: 1; text-align: center; font-size: 12px !important; padding: 6px 10px !important; }
         }
       `}</style>
-
-      {showConfetti && correctFlash !== null && (
-        <div className="correct-toast">🎉 Correct! Well done!</div>
-      )}
 
       <div className="app">
         <div className="sidebar">
@@ -441,11 +442,16 @@ export default function App() {
               </div>
 
               {quizLoading && (
-                <div className="quiz-empty">
-                  <div className="quiz-empty-icon">⏳</div>
-                  <div className="quiz-empty-title">Generating quiz...</div>
-                  <div className="quiz-empty-sub">Creating questions from your document!</div>
-                </div>
+                <>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${quizProgress}%` }} />
+                  </div>
+                  <div className="quiz-empty">
+                    <div className="quiz-empty-icon">⏳</div>
+                    <div className="quiz-empty-title">Generating quiz...</div>
+                    <div className="quiz-empty-sub">Creating questions from your document!</div>
+                  </div>
+                </>
               )}
 
               {!quizLoading && quiz.length === 0 && (
@@ -458,21 +464,15 @@ export default function App() {
 
               {!quizLoading && submitted && (
                 <div className="score-card">
-                  <div className="score-emoji">
-                    {score === quiz.length ? "🏆" : score >= quiz.length / 2 ? "🎉" : "📚"}
-                  </div>
+                  <div className="score-emoji">{score === quiz.length ? "🏆" : score >= quiz.length / 2 ? "🎉" : "📚"}</div>
                   <div className="score-text">{score} / {quiz.length} correct</div>
                   <div className="score-sub">
-                    {score === quiz.length ? "Perfect score! You nailed it! 🏆" :
-                     score >= quiz.length / 2 ? "Good job! Keep studying! 💪" :
-                     "Keep studying, you'll get there! 📚"}
+                    {score === quiz.length ? "Perfect score! You nailed it! 🏆" : score >= quiz.length / 2 ? "Good job! Keep studying! 💪" : "Keep studying, you'll get there! 📚"}
                   </div>
                   <div className="score-bar">
                     <div className="score-fill" style={{ width: `${(score / quiz.length) * 100}%` }} />
                   </div>
-                  <button className="retry-btn" onClick={() => { setAnswers({}); setSubmitted(false); setScore(0); }}>
-                    Try Again 🔄
-                  </button>
+                  <button className="retry-btn" onClick={() => { setAnswers({}); setSubmitted(false); setScore(0); }}>Try Again 🔄</button>
                 </div>
               )}
 
@@ -487,9 +487,7 @@ export default function App() {
                         cls += " disabled";
                         if (opt.label === q.correct) cls += " correct";
                         else if (answers[q.id] === opt.label) cls += " wrong";
-                      } else if (answers[q.id] === opt.label) {
-                        cls += " selected";
-                      }
+                      } else if (answers[q.id] === opt.label) cls += " selected";
                       return (
                         <div key={opt.label} className={cls} onClick={() => selectAnswer(q.id, opt.label, q.correct)}>
                           <div className="option-label">{opt.label}</div>
