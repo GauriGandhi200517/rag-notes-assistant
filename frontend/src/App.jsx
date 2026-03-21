@@ -3,6 +3,44 @@ import axios from "axios";
 
 const API = "https://gaurigandhi16-rag-notes-assistant.hf.space";
 
+function Confetti({ active }) {
+  const colors = ["#3b82f6", "#34d399", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"];
+  const pieces = Array.from({ length: 60 }, (_, i) => ({
+    id: i,
+    color: colors[i % colors.length],
+    left: Math.random() * 100,
+    delay: Math.random() * 0.8,
+    duration: 1.5 + Math.random() * 1,
+    size: 6 + Math.random() * 8,
+    rotate: Math.random() * 360,
+  }));
+  if (!active) return null;
+  return (
+    <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 9999, overflow: "hidden" }}>
+      {pieces.map(p => (
+        <div key={p.id} style={{
+          position: "absolute",
+          left: `${p.left}%`,
+          top: "-20px",
+          width: p.size,
+          height: p.size,
+          background: p.color,
+          borderRadius: Math.random() > 0.5 ? "50%" : "2px",
+          animation: `fall ${p.duration}s ${p.delay}s ease-in forwards`,
+          transform: `rotate(${p.rotate}deg)`,
+          opacity: 0.9,
+        }} />
+      ))}
+      <style>{`
+        @keyframes fall {
+          0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function App() {
   const [file, setFile] = useState(null);
   const [question, setQuestion] = useState("");
@@ -18,6 +56,8 @@ export default function App() {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [correctFlash, setCorrectFlash] = useState(null);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -35,16 +75,9 @@ export default function App() {
       await axios.post(`${API}/build-index`);
       setIndexed(true);
       setDocName(file.name);
-      setMessages([{
-        role: "system",
-        text: `Document ready! Ask me anything about "${file.name}". 📄`
-      }]);
-      setQuiz([]);
-      setAnswers({});
-      setSubmitted(false);
-    } catch (e) {
-      alert("Error uploading file.");
-    }
+      setMessages([{ role: "system", text: `Document ready! Ask me anything about "${file.name}". 📄` }]);
+      setQuiz([]); setAnswers({}); setSubmitted(false);
+    } catch (e) { alert("Error uploading file."); }
     setUploading(false);
   }
 
@@ -57,17 +90,9 @@ export default function App() {
     setLoading(true);
     try {
       const res = await axios.post(`${API}/chat?question=${encodeURIComponent(userMsg.text)}`);
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        text: res.data.answer,
-        sources: res.data.sources
-      }]);
+      setMessages(prev => [...prev, { role: "assistant", text: res.data.answer, sources: res.data.sources }]);
     } catch (e) {
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        text: "Something went wrong. Please try again.",
-        sources: []
-      }]);
+      setMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again.", sources: [] }]);
     }
     setLoading(false);
   }
@@ -75,90 +100,76 @@ export default function App() {
   async function generateQuiz() {
     if (!indexed) return alert("Please upload a document first!");
     setQuizLoading(true);
-    setQuiz([]);
-    setAnswers({});
-    setSubmitted(false);
-    setScore(0);
-
+    setQuiz([]); setAnswers({}); setSubmitted(false); setScore(0);
     const topics = [
-      "definition and introduction",
-      "main concept and purpose",
-      "key components and structure",
-      "types and categories",
-      "applications and use cases"
+      "what is the main definition or introduction",
+      "what are the key components or parts",
+      "what are the types or categories",
+      "what are the main applications or uses",
+      "what are the important features or characteristics"
     ];
-
     const generatedQuiz = [];
-
     for (let i = 0; i < 5; i++) {
       try {
-        const res = await axios.post(`${API}/chat?question=Give me one multiple choice question with 4 options about ${topics[i]} from this document. Format: Q: [question] A) [option1] B) [option2] C) [option3] D) [option4] Answer: [correct letter]`);
-        const text = res.data.answer;
-        const parsed = parseQuizQuestion(text, i);
+        const res = await axios.post(`${API}/chat?question=Create one multiple choice question about: ${topics[i]}. Use exactly this format:\nQ: [your question here]\nA) [option 1]\nB) [option 2]\nC) [option 3]\nD) [option 4]\nAnswer: [A or B or C or D]`);
+        const parsed = parseQuizQuestion(res.data.answer, i);
         if (parsed) generatedQuiz.push(parsed);
-      } catch (e) {
-        console.error(e);
-      }
+      } catch (e) { console.error(e); }
     }
-
     if (generatedQuiz.length === 0) {
-      // Fallback manual quiz from chunks
-      try {
-        const res = await axios.post(`${API}/search?query=definition introduction concept`, { top_k: 5 });
-        setQuiz([{
-          id: 0,
-          question: "What is the main topic of this document?",
-          options: ["Data structures", "The topic covered in this PDF", "Mathematics", "History"],
-          correct: "B",
-          explanation: "Based on the uploaded document content."
-        }]);
-      } catch (e) {}
+      setQuiz([{
+        id: 0,
+        question: "What type of document did you upload?",
+        options: [
+          { label: "A", text: "A PDF document or notes" },
+          { label: "B", text: "A spreadsheet" },
+          { label: "C", text: "A video file" },
+          { label: "D", text: "An audio file" }
+        ],
+        correct: "A"
+      }]);
     } else {
       setQuiz(generatedQuiz);
     }
-
     setQuizLoading(false);
   }
 
   function parseQuizQuestion(text, id) {
     try {
-      const qMatch = text.match(/Q:\s*(.+?)(?=\nA\))/s);
-      const aMatch = text.match(/A\)\s*(.+?)(?=\nB\))/s);
-      const bMatch = text.match(/B\)\s*(.+?)(?=\nC\))/s);
-      const cMatch = text.match(/C\)\s*(.+?)(?=\nD\))/s);
-      const dMatch = text.match(/D\)\s*(.+?)(?=\nAnswer:)/s);
-      const ansMatch = text.match(/Answer:\s*([ABCD])/);
-
-      if (!qMatch || !aMatch || !bMatch || !cMatch || !dMatch || !ansMatch) return null;
-
-      return {
-        id,
-        question: qMatch[1].trim(),
-        options: [
-          { label: "A", text: aMatch[1].trim() },
-          { label: "B", text: bMatch[1].trim() },
-          { label: "C", text: cMatch[1].trim() },
-          { label: "D", text: dMatch[1].trim() },
-        ],
-        correct: ansMatch[1].trim()
-      };
-    } catch (e) {
-      return null;
-    }
+      const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+      let question = "", options = [], correct = "";
+      lines.forEach(line => {
+        if (line.startsWith("Q:")) question = line.replace("Q:", "").trim();
+        else if (line.match(/^A[\)\.]/)) options.push({ label: "A", text: line.replace(/^A[\)\.]\s*/, "").trim() });
+        else if (line.match(/^B[\)\.]/)) options.push({ label: "B", text: line.replace(/^B[\)\.]\s*/, "").trim() });
+        else if (line.match(/^C[\)\.]/)) options.push({ label: "C", text: line.replace(/^C[\)\.]\s*/, "").trim() });
+        else if (line.match(/^D[\)\.]/)) options.push({ label: "D", text: line.replace(/^D[\)\.]\s*/, "").trim() });
+        else if (line.toLowerCase().startsWith("answer:")) correct = line.replace(/answer:/i, "").trim().charAt(0).toUpperCase();
+      });
+      if (!question || options.length < 2 || !correct) return null;
+      return { id, question, options, correct };
+    } catch (e) { return null; }
   }
 
-  function selectAnswer(qId, label) {
+  function selectAnswer(qId, label, correct) {
     if (submitted) return;
     setAnswers(prev => ({ ...prev, [qId]: label }));
+    if (label === correct) {
+      setCorrectFlash(qId);
+      setShowConfetti(true);
+      setTimeout(() => { setShowConfetti(false); setCorrectFlash(null); }, 2500);
+    }
   }
 
   function submitQuiz() {
     let correct = 0;
-    quiz.forEach(q => {
-      if (answers[q.id] === q.correct) correct++;
-    });
+    quiz.forEach(q => { if (answers[q.id] === q.correct) correct++; });
     setScore(correct);
     setSubmitted(true);
+    if (correct === quiz.length) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 4000);
+    }
   }
 
   function toggleSources(i) {
@@ -169,6 +180,7 @@ export default function App() {
 
   return (
     <>
+      <Confetti active={showConfetti} />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -243,10 +255,8 @@ export default function App() {
         .send-btn { background: linear-gradient(135deg, #1d4ed8, #2563eb); border: none; color: white; width: 40px; height: 40px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 16px; flex-shrink: 0; }
         .send-btn:hover:not(:disabled) { transform: scale(1.05); }
         .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        /* Quiz styles */
         .quiz-area { flex: 1; overflow-y: auto; padding: 28px; display: flex; flex-direction: column; gap: 20px; }
-        .quiz-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .quiz-header { display: flex; align-items: center; justify-content: space-between; }
         .quiz-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #e8edf5; }
         .quiz-sub { font-size: 13px; color: #4a6080; margin-top: 4px; }
         .generate-btn { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
@@ -256,18 +266,25 @@ export default function App() {
         .quiz-empty-icon { font-size: 52px; }
         .quiz-empty-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #1e3a5f; }
         .quiz-empty-sub { font-size: 13px; color: #162032; max-width: 260px; line-height: 1.6; }
-        .question-card { background: #0d1421; border: 1px solid #111d2e; border-radius: 16px; padding: 20px; }
+        .question-card { background: #0d1421; border: 1px solid #111d2e; border-radius: 16px; padding: 20px; transition: all 0.3s; }
+        .question-card.flash { border-color: #34d399; box-shadow: 0 0 20px rgba(52, 211, 153, 0.3); }
         .question-num { font-size: 11px; color: #4a6080; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
         .question-text { font-size: 15px; color: #e8edf5; line-height: 1.6; margin-bottom: 16px; font-weight: 500; }
         .options { display: flex; flex-direction: column; gap: 8px; }
         .option { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-radius: 10px; border: 1px solid #1e3a5f; cursor: pointer; transition: all 0.2s; background: #080c14; }
         .option:hover:not(.disabled) { border-color: #3b82f6; background: #0d1f3c; }
         .option.selected { border-color: #3b82f6; background: #0d1f3c; }
-        .option.correct { border-color: #34d399 !important; background: #0a1f0f !important; }
-        .option.wrong { border-color: #ef4444 !important; background: #1a0a0a !important; }
+        .option.correct { border-color: #34d399 !important; background: #0a1f0f !important; animation: correctPop 0.4s ease; }
+        .option.wrong { border-color: #ef4444 !important; background: #1a0a0a !important; animation: wrongShake 0.4s ease; }
         .option.disabled { cursor: default; }
-        .option-label { width: 28px; height: 28px; border-radius: 8px; background: #1e3a5f; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #60a5fa; flex-shrink: 0; }
+        @keyframes correctPop { 0%{transform:scale(1)} 50%{transform:scale(1.03)} 100%{transform:scale(1)} }
+        @keyframes wrongShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+        .option-label { width: 28px; height: 28px; border-radius: 8px; background: #1e3a5f; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #60a5fa; flex-shrink: 0; transition: all 0.2s; }
+        .option.correct .option-label { background: #14532d; color: #34d399; }
+        .option.wrong .option-label { background: #450a0a; color: #ef4444; }
         .option-text { font-size: 13px; color: #d1d9e6; }
+        .correct-toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #059669, #34d399); color: white; padding: 12px 24px; border-radius: 50px; font-size: 15px; font-weight: 600; font-family: 'Syne', sans-serif; z-index: 9998; animation: toastIn 0.3s ease; box-shadow: 0 8px 32px rgba(52,211,153,0.4); }
+        @keyframes toastIn { 0%{transform:translateX(-50%) translateY(-20px);opacity:0} 100%{transform:translateX(-50%) translateY(0);opacity:1} }
         .score-card { background: linear-gradient(135deg, #0a1f3c, #0d1421); border: 1px solid #1e3a5f; border-radius: 16px; padding: 24px; text-align: center; }
         .score-emoji { font-size: 48px; margin-bottom: 12px; }
         .score-text { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; color: #e8edf5; }
@@ -279,7 +296,6 @@ export default function App() {
         .submit-btn { width: 100%; background: linear-gradient(135deg, #059669, #10b981); color: white; border: none; padding: 13px; border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; margin-top: 8px; }
         .submit-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
         .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
         @media (max-width: 768px) {
           .app { flex-direction: column; height: 100dvh; }
           .sidebar { width: 100% !important; min-width: unset !important; padding: 10px 14px !important; gap: 8px !important; border-right: none !important; border-bottom: 1px solid #111d2e !important; flex-direction: row !important; flex-wrap: wrap !important; align-items: center !important; }
@@ -305,8 +321,11 @@ export default function App() {
         }
       `}</style>
 
+      {showConfetti && correctFlash !== null && (
+        <div className="correct-toast">🎉 Correct! Well done!</div>
+      )}
+
       <div className="app">
-        {/* Sidebar */}
         <div className="sidebar">
           <div>
             <div className="logo">RAG<span>.</span>AI</div>
@@ -337,7 +356,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Main */}
         <div className="main">
           <div className="chat-header">
             <div>
@@ -350,7 +368,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Chat Tab */}
           {activeTab === "chat" && (
             <>
               <div className="messages">
@@ -411,7 +428,6 @@ export default function App() {
             </>
           )}
 
-          {/* Quiz Tab */}
           {activeTab === "quiz" && (
             <div className="quiz-area">
               <div className="quiz-header">
@@ -428,7 +444,7 @@ export default function App() {
                 <div className="quiz-empty">
                   <div className="quiz-empty-icon">⏳</div>
                   <div className="quiz-empty-title">Generating quiz...</div>
-                  <div className="quiz-empty-sub">Creating questions from your document. This may take a moment!</div>
+                  <div className="quiz-empty-sub">Creating questions from your document!</div>
                 </div>
               )}
 
@@ -436,7 +452,7 @@ export default function App() {
                 <div className="quiz-empty">
                   <div className="quiz-empty-icon">🧠</div>
                   <div className="quiz-empty-title">No quiz yet</div>
-                  <div className="quiz-empty-sub">{indexed ? "Click Generate Quiz to create questions from your document!" : "Upload a document first, then generate a quiz!"}</div>
+                  <div className="quiz-empty-sub">{indexed ? "Click Generate Quiz to create questions!" : "Upload a document first!"}</div>
                 </div>
               )}
 
@@ -447,9 +463,9 @@ export default function App() {
                   </div>
                   <div className="score-text">{score} / {quiz.length} correct</div>
                   <div className="score-sub">
-                    {score === quiz.length ? "Perfect score! You nailed it!" :
-                     score >= quiz.length / 2 ? "Good job! Keep studying!" :
-                     "Keep studying, you'll get there!"}
+                    {score === quiz.length ? "Perfect score! You nailed it! 🏆" :
+                     score >= quiz.length / 2 ? "Good job! Keep studying! 💪" :
+                     "Keep studying, you'll get there! 📚"}
                   </div>
                   <div className="score-bar">
                     <div className="score-fill" style={{ width: `${(score / quiz.length) * 100}%` }} />
@@ -461,7 +477,7 @@ export default function App() {
               )}
 
               {!quizLoading && quiz.map((q, i) => (
-                <div key={q.id} className="question-card">
+                <div key={q.id} className={`question-card ${correctFlash === q.id ? "flash" : ""}`}>
                   <div className="question-num">Question {i + 1} of {quiz.length}</div>
                   <div className="question-text">{q.question}</div>
                   <div className="options">
@@ -475,7 +491,7 @@ export default function App() {
                         cls += " selected";
                       }
                       return (
-                        <div key={opt.label} className={cls} onClick={() => selectAnswer(q.id, opt.label)}>
+                        <div key={opt.label} className={cls} onClick={() => selectAnswer(q.id, opt.label, q.correct)}>
                           <div className="option-label">{opt.label}</div>
                           <div className="option-text">{opt.text}</div>
                         </div>
@@ -486,11 +502,7 @@ export default function App() {
               ))}
 
               {!quizLoading && quiz.length > 0 && !submitted && (
-                <button
-                  className="submit-btn"
-                  onClick={submitQuiz}
-                  disabled={Object.keys(answers).length < quiz.length}
-                >
+                <button className="submit-btn" onClick={submitQuiz} disabled={Object.keys(answers).length < quiz.length}>
                   Submit Quiz ({Object.keys(answers).length}/{quiz.length} answered)
                 </button>
               )}
