@@ -6,12 +6,9 @@ const API = "https://gaurigandhi16-rag-notes-assistant.hf.space";
 function Confetti({ active }) {
   const colors = ["#3b82f6", "#34d399", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"];
   const pieces = Array.from({ length: 60 }, (_, i) => ({
-    id: i,
-    color: colors[i % colors.length],
-    left: Math.random() * 100,
-    delay: Math.random() * 0.8,
-    duration: 1.5 + Math.random() * 1,
-    size: 6 + Math.random() * 8,
+    id: i, color: colors[i % colors.length],
+    left: Math.random() * 100, delay: Math.random() * 0.8,
+    duration: 1.5 + Math.random() * 1, size: 6 + Math.random() * 8,
     rotate: Math.random() * 360,
   }));
   if (!active) return null;
@@ -26,13 +23,14 @@ function Confetti({ active }) {
           transform: `rotate(${p.rotate}deg)`, opacity: 0.9,
         }} />
       ))}
-      <style>{`@keyframes fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }`}</style>
+      <style>{`@keyframes fall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}`}</style>
     </div>
   );
 }
 
 export default function App() {
   const [file, setFile] = useState(null);
+  const [pdfUrl, setPdfUrl] = useState(null);
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -41,6 +39,7 @@ export default function App() {
   const [docName, setDocName] = useState(null);
   const [expandedSources, setExpandedSources] = useState({});
   const [activeTab, setActiveTab] = useState("chat");
+  const [showPreview, setShowPreview] = useState(false);
   const [quiz, setQuiz] = useState([]);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizProgress, setQuizProgress] = useState(0);
@@ -50,6 +49,8 @@ export default function App() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [correctFlash, setCorrectFlash] = useState(null);
   const [showToast, setShowToast] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+  const [toastType, setToastType] = useState("success");
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -57,25 +58,55 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  function handleFileSelect(e) {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith(".pdf")) {
+      showToastMsg("❌ Only PDF files are supported!", "error");
+      return;
+    }
+    setFile(f);
+    setPdfUrl(URL.createObjectURL(f));
+  }
+
+  function showToastMsg(msg, type = "success") {
+    setToastMsg(msg);
+    setToastType(type);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  }
+
   async function uploadFile() {
-    if (!file) return alert("Please select a file first!");
+    if (!file) return showToastMsg("Please select a PDF first!", "error");
     setUploading(true);
     const form = new FormData();
     form.append("file", file);
     try {
-      await axios.post(`${API}/ingest`, form);
+      const ingestRes = await axios.post(`${API}/ingest`, form);
+      if (ingestRes.data.error) {
+        if (ingestRes.data.error === "scanned_pdf") {
+          showToastMsg("❌ Scanned PDF detected! Please upload a computer-generated text PDF.", "error");
+        } else {
+          showToastMsg(`❌ ${ingestRes.data.message}`, "error");
+        }
+        setUploading(false);
+        return;
+      }
       await axios.post(`${API}/build-index`);
       setIndexed(true);
       setDocName(file.name);
       setMessages([{ role: "system", text: `Document ready! Ask me anything about "${file.name}". 📄` }]);
       setQuiz([]); setAnswers({}); setSubmitted(false);
-    } catch (e) { alert("Error uploading file."); }
+      showToastMsg("✅ Document indexed successfully!");
+    } catch (e) {
+      showToastMsg("❌ Error uploading file. Try again.", "error");
+    }
     setUploading(false);
   }
 
   async function askQuestion() {
     if (!question.trim() || loading) return;
-    if (!indexed) return alert("Please upload a file first!");
+    if (!indexed) return showToastMsg("Please upload a PDF first!", "error");
     const userMsg = { role: "user", text: question };
     setMessages(prev => [...prev, userMsg]);
     setQuestion("");
@@ -90,47 +121,31 @@ export default function App() {
   }
 
   async function generateQuiz() {
-    if (!indexed) return alert("Please upload a document first!");
+    if (!indexed) return showToastMsg("Please upload a document first!", "error");
     setQuizLoading(true);
     setQuizProgress(0);
     setQuiz([]); setAnswers({}); setSubmitted(false); setScore(0);
-
     try {
-      setQuizProgress(20);
+      setQuizProgress(30);
       const res = await axios.post(`${API}/quiz?topic=main concepts definitions types applications`);
-      setQuizProgress(80);
+      setQuizProgress(90);
       const rawQuestions = res.data.questions || [];
       const generatedQuiz = rawQuestions.map((q, i) => parseQuizQuestion(q, i)).filter(Boolean);
       setQuizProgress(100);
-
       if (generatedQuiz.length === 0) {
         const searchRes = await axios.post(`${API}/search?query=definition concept introduction&top_k=5`);
         const chunks = (searchRes.data.results || []).slice(0, 4);
-        const fallbackQuiz = chunks.map((chunk, i) => {
-          const text = chunk.text.replace(/\n/g, " ").trim();
-          return {
-            id: i,
-            question: `What does this passage from page ${chunk.page} describe? "${text.slice(0, 60)}..."`,
-            options: [
-              { label: "A", text: text.slice(0, 100) },
-              { label: "B", text: "This describes a mathematical formula" },
-              { label: "C", text: "This describes a cooking recipe" },
-              { label: "D", text: "This describes a sports event" }
-            ],
-            correct: "A"
-          };
-        });
-        setQuiz(fallbackQuiz.length > 0 ? fallbackQuiz : [{
-          id: 0,
-          question: "What is the main subject of this document?",
+        setQuiz(chunks.map((chunk, i) => ({
+          id: i,
+          question: `What does this passage from page ${chunk.page} describe? "${chunk.text.replace(/\n/g, " ").slice(0, 80)}..."`,
           options: [
-            { label: "A", text: "The topic covered in this uploaded document" },
-            { label: "B", text: "A completely unrelated subject" },
-            { label: "C", text: "A cooking recipe book" },
-            { label: "D", text: "A travel guide" }
+            { label: "A", text: chunk.text.replace(/\n/g, " ").slice(0, 100) },
+            { label: "B", text: "A mathematical formula" },
+            { label: "C", text: "A cooking recipe" },
+            { label: "D", text: "A sports event" }
           ],
           correct: "A"
-        }]);
+        })));
       } else {
         setQuiz(generatedQuiz);
       }
@@ -161,8 +176,8 @@ export default function App() {
     if (label === correct) {
       setCorrectFlash(qId);
       setShowConfetti(true);
-      setShowToast(true);
-      setTimeout(() => { setShowConfetti(false); setCorrectFlash(null); setShowToast(false); }, 2500);
+      showToastMsg("🎉 Correct! Well done!");
+      setTimeout(() => { setShowConfetti(false); setCorrectFlash(null); }, 2500);
     }
   }
 
@@ -181,12 +196,29 @@ export default function App() {
     setExpandedSources(prev => ({ ...prev, [i]: !prev[i] }));
   }
 
-  const isImage = file && ["jpg", "jpeg", "png", "webp"].includes(file.name.split(".").pop().toLowerCase());
-
   return (
     <>
       <Confetti active={showConfetti} />
-      {showToast && <div style={{ position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#059669,#34d399)", color: "white", padding: "12px 28px", borderRadius: 50, fontSize: 15, fontWeight: 600, zIndex: 9998, boxShadow: "0 8px 32px rgba(52,211,153,0.4)", fontFamily: "'Syne',sans-serif", animation: "toastIn 0.3s ease" }}>🎉 Correct! Well done!</div>}
+
+      {showToast && (
+        <div style={{
+          position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)",
+          background: toastType === "error" ? "linear-gradient(135deg,#dc2626,#ef4444)" : "linear-gradient(135deg,#059669,#34d399)",
+          color: "white", padding: "12px 28px", borderRadius: 50, fontSize: 14,
+          fontWeight: 600, zIndex: 9998, boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+          fontFamily: "'Syne',sans-serif", whiteSpace: "nowrap"
+        }}>{toastMsg}</div>
+      )}
+
+      {showPreview && pdfUrl && (
+        <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(0,0,0,0.85)", zIndex: 9990, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", background: "#0d1421", borderBottom: "1px solid #111d2e" }}>
+            <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 600, color: "#e8edf5", fontSize: 15 }}>📄 {docName}</span>
+            <button onClick={() => setShowPreview(false)} style={{ background: "#ef4444", color: "white", border: "none", padding: "6px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>✕ Close</button>
+          </div>
+          <iframe src={pdfUrl} style={{ flex: 1, border: "none" }} title="PDF Preview" />
+        </div>
+      )}
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -195,7 +227,6 @@ export default function App() {
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; }
-        @keyframes toastIn { 0%{transform:translateX(-50%) translateY(-20px);opacity:0} 100%{transform:translateX(-50%) translateY(0);opacity:1} }
         .app { display: flex; height: 100vh; font-family: 'DM Sans', sans-serif; background: #080c14; color: #e8edf5; overflow: hidden; }
         .sidebar { width: 280px; min-width: 280px; background: #0d1421; border-right: 1px solid #111d2e; display: flex; flex-direction: column; padding: 24px 18px; gap: 20px; }
         .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: #e8edf5; letter-spacing: -0.5px; }
@@ -210,6 +241,8 @@ export default function App() {
         .upload-btn { width: 100%; background: linear-gradient(135deg, #1d4ed8, #2563eb); color: white; border: none; padding: 11px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
         .upload-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
         .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .preview-btn { width: 100%; background: transparent; border: 1px solid #1e3a5f; color: #4a6080; padding: 9px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+        .preview-btn:hover { border-color: #3b82f6; color: #60a5fa; background: #0d1f3c; }
         .doc-card { background: #0a1628; border: 1px solid #111d2e; border-radius: 12px; padding: 12px; }
         .doc-card-label { font-size: 10px; color: #4a6080; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
         .doc-card-name { font-size: 12px; color: #60a5fa; font-weight: 500; word-break: break-all; }
@@ -224,7 +257,8 @@ export default function App() {
         .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         .chat-header { padding: 18px 28px; border-bottom: 1px solid #111d2e; display: flex; align-items: center; justify-content: space-between; }
         .chat-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 600; color: #e8edf5; }
-        .chat-subtitle { font-size: 11px; color: #4a6080; margin-top: 2px; }
+        .chat-subtitle { font-size: 11px; color: #4a6080; margin-top: 2px; cursor: pointer; }
+        .chat-subtitle:hover { color: #60a5fa; }
         .tabs { display: flex; gap: 8px; }
         .tab { background: transparent; border: 1px solid #1e3a5f; color: #4a6080; padding: 7px 16px; border-radius: 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.2s; }
         .tab.active { background: #1e3a5f; color: #60a5fa; border-color: #3b82f6; }
@@ -312,6 +346,7 @@ export default function App() {
           .upload-icon { font-size: 16px !important; margin-bottom: 2px !important; }
           .upload-text { font-size: 10px !important; }
           .upload-btn { width: auto !important; padding: 9px 14px !important; font-size: 12px !important; white-space: nowrap; }
+          .preview-btn { display: none !important; }
           .doc-card { display: none !important; } .clear-btn { display: none !important; }
           .messages { padding: 14px !important; gap: 12px !important; }
           .quiz-area { padding: 14px !important; }
@@ -333,18 +368,23 @@ export default function App() {
             <div className="logo-sub">Document Intelligence</div>
           </div>
           <div className="upload-zone" onClick={() => fileInputRef.current.click()}>
-            <div className="upload-icon">{isImage ? "🖼️" : "📎"}</div>
+            <div className="upload-icon">📄</div>
             <div className="upload-text">
               <strong>Click to upload</strong><br />
-              PDF or photo of notes 📸
+              Text-based PDF only
               {file && <div className="file-selected">📄 {file.name.slice(0, 22)}{file.name.length > 22 ? "..." : ""}</div>}
             </div>
           </div>
-          <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => setFile(e.target.files[0])} style={{ display: "none" }} />
-          {uploading && <div className="uploading-bar"><div className="spinner" />{isImage ? "Reading notes..." : "Processing..."}</div>}
+          <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileSelect} style={{ display: "none" }} />
+          {uploading && <div className="uploading-bar"><div className="spinner" />Processing PDF...</div>}
           <button className="upload-btn" onClick={uploadFile} disabled={!file || uploading}>
             {uploading ? "Indexing..." : "Upload & Index"}
           </button>
+          {pdfUrl && (
+            <button className="preview-btn" onClick={() => setShowPreview(true)}>
+              👁️ Preview PDF
+            </button>
+          )}
           {indexed && (
             <div className="doc-card">
               <div className="doc-card-label">Active Document</div>
@@ -352,7 +392,7 @@ export default function App() {
               <div className="doc-card-status"><div className="status-dot" /> Ready</div>
             </div>
           )}
-          <button className="clear-btn" onClick={() => { setMessages([]); setIndexed(false); setFile(null); setDocName(""); setQuiz([]); setAnswers({}); setSubmitted(false); }}>
+          <button className="clear-btn" onClick={() => { setMessages([]); setIndexed(false); setFile(null); setDocName(""); setQuiz([]); setAnswers({}); setSubmitted(false); setPdfUrl(null); }}>
             Clear conversation
           </button>
         </div>
@@ -361,7 +401,9 @@ export default function App() {
           <div className="chat-header">
             <div>
               <div className="chat-title">RAG.AI Assistant</div>
-              <div className="chat-subtitle">{indexed ? `📄 ${docName}` : "Upload a PDF or photo to begin"}</div>
+              <div className="chat-subtitle" onClick={() => indexed && pdfUrl && setShowPreview(true)}>
+                {indexed ? `📄 ${docName} · click to preview` : "Upload a text-based PDF to begin"}
+              </div>
             </div>
             <div className="tabs">
               <button className={`tab ${activeTab === "chat" ? "active" : ""}`} onClick={() => setActiveTab("chat")}>💬 Chat</button>
@@ -376,10 +418,10 @@ export default function App() {
                   <div className="empty-state">
                     <div className="empty-icon">🔍</div>
                     <div className="empty-title">No document loaded</div>
-                    <div className="empty-sub">Upload a PDF or photo of your handwritten notes!</div>
+                    <div className="empty-sub">Upload a computer-generated text PDF to get started!</div>
                     <div className="empty-features">
-                      <span className="empty-feature">📄 PDF documents</span>
-                      <span className="empty-feature">📸 Handwritten notes</span>
+                      <span className="empty-feature">📄 Text PDF only</span>
+                      <span className="empty-feature">🤖 Groq AI answers</span>
                       <span className="empty-feature">🧠 Auto Quiz</span>
                       <span className="empty-feature">📌 Page citations</span>
                     </div>
@@ -420,7 +462,7 @@ export default function App() {
                     value={question}
                     onChange={e => setQuestion(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && askQuestion()}
-                    placeholder={indexed ? "Ask anything about your document..." : "Upload a file first..."}
+                    placeholder={indexed ? "Ask anything about your document..." : "Upload a PDF first..."}
                     disabled={!indexed || loading}
                   />
                 </div>
@@ -434,13 +476,12 @@ export default function App() {
               <div className="quiz-header">
                 <div>
                   <div className="quiz-title">🧠 Quiz yourself</div>
-                  <div className="quiz-sub">Auto-generated from your document</div>
+                  <div className="quiz-sub">AI-generated from your document</div>
                 </div>
                 <button className="generate-btn" onClick={generateQuiz} disabled={!indexed || quizLoading}>
                   {quizLoading ? "Generating..." : "Generate Quiz ✨"}
                 </button>
               </div>
-
               {quizLoading && (
                 <>
                   <div className="progress-bar">
@@ -449,33 +490,26 @@ export default function App() {
                   <div className="quiz-empty">
                     <div className="quiz-empty-icon">⏳</div>
                     <div className="quiz-empty-title">Generating quiz...</div>
-                    <div className="quiz-empty-sub">Creating questions from your document!</div>
+                    <div className="quiz-empty-sub">AI is creating questions from your document!</div>
                   </div>
                 </>
               )}
-
               {!quizLoading && quiz.length === 0 && (
                 <div className="quiz-empty">
                   <div className="quiz-empty-icon">🧠</div>
                   <div className="quiz-empty-title">No quiz yet</div>
-                  <div className="quiz-empty-sub">{indexed ? "Click Generate Quiz to create questions!" : "Upload a document first!"}</div>
+                  <div className="quiz-empty-sub">{indexed ? "Click Generate Quiz to create AI questions!" : "Upload a document first!"}</div>
                 </div>
               )}
-
               {!quizLoading && submitted && (
                 <div className="score-card">
                   <div className="score-emoji">{score === quiz.length ? "🏆" : score >= quiz.length / 2 ? "🎉" : "📚"}</div>
                   <div className="score-text">{score} / {quiz.length} correct</div>
-                  <div className="score-sub">
-                    {score === quiz.length ? "Perfect score! You nailed it! 🏆" : score >= quiz.length / 2 ? "Good job! Keep studying! 💪" : "Keep studying, you'll get there! 📚"}
-                  </div>
-                  <div className="score-bar">
-                    <div className="score-fill" style={{ width: `${(score / quiz.length) * 100}%` }} />
-                  </div>
+                  <div className="score-sub">{score === quiz.length ? "Perfect score! You nailed it! 🏆" : score >= quiz.length / 2 ? "Good job! Keep studying! 💪" : "Keep studying, you'll get there! 📚"}</div>
+                  <div className="score-bar"><div className="score-fill" style={{ width: `${(score / quiz.length) * 100}%` }} /></div>
                   <button className="retry-btn" onClick={() => { setAnswers({}); setSubmitted(false); setScore(0); }}>Try Again 🔄</button>
                 </div>
               )}
-
               {!quizLoading && quiz.map((q, i) => (
                 <div key={q.id} className={`question-card ${correctFlash === q.id ? "flash" : ""}`}>
                   <div className="question-num">Question {i + 1} of {quiz.length}</div>
@@ -498,7 +532,6 @@ export default function App() {
                   </div>
                 </div>
               ))}
-
               {!quizLoading && quiz.length > 0 && !submitted && (
                 <button className="submit-btn" onClick={submitQuiz} disabled={Object.keys(answers).length < quiz.length}>
                   Submit Quiz ({Object.keys(answers).length}/{quiz.length} answered)
