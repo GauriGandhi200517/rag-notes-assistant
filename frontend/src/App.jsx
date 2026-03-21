@@ -14,7 +14,6 @@ export default function App() {
   const [expandedSources, setExpandedSources] = useState({});
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
-  const inputRef = useRef(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,9 +73,7 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
         
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        
         body { background: #080c14; }
-
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; }
@@ -89,8 +86,6 @@ export default function App() {
           color: #e8edf5;
           overflow: hidden;
         }
-
-        /* Sidebar */
         .sidebar {
           width: 300px;
           min-width: 300px;
@@ -101,7 +96,6 @@ export default function App() {
           padding: 28px 20px;
           gap: 24px;
         }
-
         .logo {
           font-family: 'Syne', sans-serif;
           font-weight: 800;
@@ -110,11 +104,7 @@ export default function App() {
           letter-spacing: -0.5px;
           line-height: 1.2;
         }
-
-        .logo span {
-          color: #3b82f6;
-        }
-
+        .logo span { color: #3b82f6; }
         .logo-sub {
           font-family: 'DM Sans', sans-serif;
           font-weight: 300;
@@ -123,7 +113,6 @@ export default function App() {
           margin-top: 4px;
           letter-spacing: 0.5px;
         }
-
         .upload-zone {
           border: 1.5px dashed #1e3a5f;
           border-radius: 14px;
@@ -133,28 +122,10 @@ export default function App() {
           transition: all 0.2s;
           background: #0a1628;
         }
-
-        .upload-zone:hover {
-          border-color: #3b82f6;
-          background: #0d1f3c;
-        }
-
-        .upload-icon {
-          font-size: 28px;
-          margin-bottom: 8px;
-        }
-
-        .upload-text {
-          font-size: 13px;
-          color: #4a6080;
-          line-height: 1.5;
-        }
-
-        .upload-text strong {
-          color: #3b82f6;
-          font-weight: 500;
-        }
-
+        .upload-zone:hover { border-color: #3b82f6; background: #0d1f3c; }
+        .upload-icon { font-size: 28px; margin-bottom: 8px; }
+        .upload-text { font-size: 13px; color: #4a6080; line-height: 1.5; }
+        .upload-text strong { color: #3b82f6; font-weight: 500; }
         .file-selected {
           margin-top: 10px;
           background: #0d1f3c;
@@ -166,7 +137,6 @@ export default function App() {
           align-items: center;
           gap: 6px;
         }
-
         .upload-btn {
           width: 100%;
           background: linear-gradient(135deg, #1d4ed8, #2563eb);
@@ -181,24 +151,17 @@ export default function App() {
           transition: all 0.2s;
           letter-spacing: 0.3px;
         }
-
         .upload-btn:hover:not(:disabled) {
           background: linear-gradient(135deg, #2563eb, #3b82f6);
           transform: translateY(-1px);
         }
-
-        .upload-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
+        .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .doc-card {
           background: #0a1628;
           border: 1px solid #111d2e;
           border-radius: 12px;
           padding: 14px;
         }
-
         .doc-card-label {
           font-size: 10px;
           color: #4a6080;
@@ -206,14 +169,7 @@ export default function App() {
           text-transform: uppercase;
           margin-bottom: 8px;
         }
-
-        .doc-card-name {
-          font-size: 13px;
-          color: #60a5fa;
-          font-weight: 500;
-          word-break: break-all;
-        }
-
+        .doc-card-name { font-size: 13px; color: #60a5fa; font-weight: 500; word-break: break-all; }
         .doc-card-status {
           display: flex;
           align-items: center;
@@ -222,7 +178,6 @@ export default function App() {
           font-size: 11px;
           color: #34d399;
         }
-
         .status-dot {
           width: 6px;
           height: 6px;
@@ -230,12 +185,10 @@ export default function App() {
           background: #34d399;
           animation: pulse 2s infinite;
         }
-
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
         }
-
         .clear-btn {
           margin-top: auto;
           background: transparent;
@@ -248,21 +201,8 @@ export default function App() {
           cursor: pointer;
           transition: all 0.2s;
         }
-
-        .clear-btn:hover {
-          border-color: #ef4444;
-          color: #ef4444;
-          background: #1a0a0a;
-        }
-
-        /* Main chat area */
-        .main {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-
+        .clear-btn:hover { border-color: #ef4444; color: #ef4444; background: #1a0a0a; }
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         .chat-header {
           padding: 20px 32px;
           border-bottom: 1px solid #111d2e;
@@ -270,20 +210,8 @@ export default function App() {
           align-items: center;
           justify-content: space-between;
         }
-
-        .chat-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 16px;
-          font-weight: 600;
-          color: #e8edf5;
-        }
-
-        .chat-subtitle {
-          font-size: 12px;
-          color: #4a6080;
-          margin-top: 2px;
-        }
-
+        .chat-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 600; color: #e8edf5; }
+        .chat-subtitle { font-size: 12px; color: #4a6080; margin-top: 2px; }
         .messages {
           flex: 1;
           overflow-y: auto;
@@ -292,7 +220,6 @@ export default function App() {
           flex-direction: column;
           gap: 20px;
         }
-
         .empty-state {
           flex: 1;
           display: flex;
@@ -300,40 +227,16 @@ export default function App() {
           align-items: center;
           justify-content: center;
           gap: 16px;
-          color: #1e3a5f;
           padding: 40px;
           text-align: center;
         }
-
-        .empty-icon {
-          font-size: 56px;
-          filter: grayscale(0.3);
-        }
-
-        .empty-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 20px;
-          font-weight: 700;
-          color: #1e3a5f;
-        }
-
-        .empty-sub {
-          font-size: 14px;
-          color: #162032;
-          max-width: 280px;
-          line-height: 1.6;
-        }
-
-        /* Messages */
-        .msg-row {
-          display: flex;
-          flex-direction: column;
-        }
-
+        .empty-icon { font-size: 56px; }
+        .empty-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: #1e3a5f; }
+        .empty-sub { font-size: 14px; color: #162032; max-width: 280px; line-height: 1.6; }
+        .msg-row { display: flex; flex-direction: column; }
         .msg-row.user { align-items: flex-end; }
         .msg-row.assistant { align-items: flex-start; }
         .msg-row.system { align-items: center; }
-
         .msg-bubble {
           max-width: 68%;
           padding: 14px 18px;
@@ -341,21 +244,17 @@ export default function App() {
           font-size: 15px;
           line-height: 1.65;
         }
-
         .msg-bubble.user {
           background: linear-gradient(135deg, #1d4ed8, #2563eb);
           color: white;
           border-radius: 18px 18px 4px 18px;
-          font-weight: 400;
         }
-
         .msg-bubble.assistant {
           background: #0d1421;
           border: 1px solid #111d2e;
           color: #d1d9e6;
           border-radius: 18px 18px 18px 4px;
         }
-
         .msg-bubble.system {
           background: #0a1f0f;
           border: 1px solid #14532d;
@@ -365,7 +264,6 @@ export default function App() {
           border-radius: 20px;
           max-width: 100%;
         }
-
         .sources-toggle {
           margin-top: 10px;
           background: transparent;
@@ -378,20 +276,8 @@ export default function App() {
           transition: all 0.2s;
           font-family: 'DM Sans', sans-serif;
         }
-
-        .sources-toggle:hover {
-          border-color: #7c3aed;
-          color: #a78bfa;
-        }
-
-        .sources-list {
-          margin-top: 8px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          max-width: 68%;
-        }
-
+        .sources-toggle:hover { border-color: #7c3aed; color: #a78bfa; }
+        .sources-list { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; max-width: 68%; }
         .source-item {
           background: #0a1628;
           border: 1px solid #111d2e;
@@ -400,18 +286,8 @@ export default function App() {
           border-radius: 8px;
           font-size: 12px;
         }
-
-        .source-item-title {
-          color: #a78bfa;
-          font-weight: 500;
-          margin-bottom: 4px;
-        }
-
-        .source-item-text {
-          color: #4a6080;
-          line-height: 1.5;
-        }
-
+        .source-item-title { color: #a78bfa; font-weight: 500; margin-bottom: 4px; }
+        .source-item-text { color: #4a6080; line-height: 1.5; }
         .typing {
           display: flex;
           align-items: center;
@@ -422,7 +298,6 @@ export default function App() {
           border-radius: 18px 18px 18px 4px;
           width: fit-content;
         }
-
         .dot {
           width: 7px;
           height: 7px;
@@ -430,16 +305,12 @@ export default function App() {
           background: #3b82f6;
           animation: bounce 1.2s infinite;
         }
-
         .dot:nth-child(2) { animation-delay: 0.2s; }
         .dot:nth-child(3) { animation-delay: 0.4s; }
-
         @keyframes bounce {
           0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
           30% { transform: translateY(-6px); opacity: 1; }
         }
-
-        /* Input */
         .input-area {
           padding: 20px 32px;
           border-top: 1px solid #111d2e;
@@ -447,7 +318,6 @@ export default function App() {
           gap: 12px;
           align-items: flex-end;
         }
-
         .input-wrap {
           flex: 1;
           background: #0d1421;
@@ -458,11 +328,7 @@ export default function App() {
           padding: 4px 4px 4px 16px;
           transition: border-color 0.2s;
         }
-
-        .input-wrap:focus-within {
-          border-color: #3b82f6;
-        }
-
+        .input-wrap:focus-within { border-color: #3b82f6; }
         .input-wrap input {
           flex: 1;
           background: transparent;
@@ -473,11 +339,7 @@ export default function App() {
           padding: 10px 0;
           outline: none;
         }
-
-        .input-wrap input::placeholder {
-          color: #2a4060;
-        }
-
+        .input-wrap input::placeholder { color: #2a4060; }
         .send-btn {
           background: linear-gradient(135deg, #1d4ed8, #2563eb);
           border: none;
@@ -493,17 +355,8 @@ export default function App() {
           font-size: 18px;
           flex-shrink: 0;
         }
-
-        .send-btn:hover:not(:disabled) {
-          background: linear-gradient(135deg, #2563eb, #3b82f6);
-          transform: scale(1.05);
-        }
-
-        .send-btn:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
+        .send-btn:hover:not(:disabled) { background: linear-gradient(135deg, #2563eb, #3b82f6); transform: scale(1.05); }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .uploading-bar {
           display: flex;
           align-items: center;
@@ -514,7 +367,6 @@ export default function App() {
           font-size: 13px;
           color: #60a5fa;
         }
-
         .spinner {
           width: 14px;
           height: 14px;
@@ -523,68 +375,90 @@ export default function App() {
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
         }
-
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) {
+          .app { flex-direction: column; height: 100dvh; }
+          .sidebar {
+            width: 100% !important;
+            min-width: unset !important;
+            padding: 12px 16px !important;
+            gap: 10px !important;
+            border-right: none !important;
+            border-bottom: 1px solid #111d2e !important;
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+          }
+          .logo { display: none; }
+          .logo-sub { display: none; }
+          .upload-zone { padding: 10px !important; flex: 1; min-width: 160px; }
+          .upload-icon { font-size: 18px !important; margin-bottom: 4px !important; }
+          .upload-text { font-size: 11px !important; }
+          .upload-btn { width: auto !important; padding: 10px 16px !important; white-space: nowrap; }
+          .doc-card { display: none !important; }
+          .clear-btn { display: none !important; }
+          .uploading-bar { font-size: 11px !important; }
+          .messages { padding: 16px !important; gap: 14px !important; }
+          .msg-bubble { max-width: 88% !important; font-size: 14px !important; }
+          .sources-list { max-width: 88% !important; }
+          .chat-header { padding: 14px 16px !important; }
+          .input-area { padding: 12px 16px !important; }
+          .input-wrap input { font-size: 14px !important; }
+        }
       `}</style>
 
       <div className="app">
-        {/* Sidebar */}
         <div className="sidebar">
           <div>
             <div className="logo">RAG<span>.</span>AI</div>
             <div className="logo-sub">Document Intelligence</div>
           </div>
-
-          <div>
-            <div className="upload-zone" onClick={() => fileInputRef.current.click()}>
-              <div className="upload-icon">📎</div>
-              <div className="upload-text">
-                <strong>Click to upload</strong> your PDF<br />
-                or drag and drop
-              </div>
+          <div className="upload-zone" onClick={() => fileInputRef.current.click()}>
+            <div className="upload-icon">📎</div>
+            <div className="upload-text">
+              <strong>Click to upload</strong> PDF
               {file && (
                 <div className="file-selected">
-                  📄 {file.name.slice(0, 24)}{file.name.length > 24 ? "..." : ""}
+                  📄 {file.name.slice(0, 20)}{file.name.length > 20 ? "..." : ""}
                 </div>
               )}
             </div>
-            <input ref={fileInputRef} type="file" accept=".pdf" onChange={e => setFile(e.target.files[0])} style={{ display: "none" }} />
           </div>
-
+          <input ref={fileInputRef} type="file" accept=".pdf" onChange={e => setFile(e.target.files[0])} style={{ display: "none" }} />
           {uploading && (
             <div className="uploading-bar">
-              <div className="spinner" />
-              Processing document...
+              <div className="spinner" /> Processing...
             </div>
           )}
-
           <button className="upload-btn" onClick={uploadPDF} disabled={!file || uploading}>
-            {uploading ? "Indexing..." : "Upload & Index PDF"}
+            {uploading ? "Indexing..." : "Upload & Index"}
           </button>
-
           {indexed && (
             <div className="doc-card">
               <div className="doc-card-label">Active Document</div>
               <div className="doc-card-name">{docName}</div>
               <div className="doc-card-status">
-                <div className="status-dot" />
-                Ready to answer
+                <div className="status-dot" /> Ready
               </div>
             </div>
           )}
-
           <button className="clear-btn" onClick={() => { setMessages([]); setIndexed(false); setFile(null); setDocName(""); }}>
             Clear conversation
           </button>
         </div>
 
-        {/* Main */}
         <div className="main">
           <div className="chat-header">
             <div>
               <div className="chat-title">Chat with your document</div>
-              <div className="chat-subtitle">{indexed ? `Chatting with: ${docName}` : "Upload a PDF to begin"}</div>
+              <div className="chat-subtitle">{indexed ? `📄 ${docName}` : "Upload a PDF to begin"}</div>
             </div>
+            {indexed && (
+              <button className="clear-btn" style={{ marginTop: 0 }} onClick={() => { setMessages([]); setIndexed(false); setFile(null); setDocName(""); }}>
+                New chat
+              </button>
+            )}
           </div>
 
           <div className="messages">
@@ -592,14 +466,12 @@ export default function App() {
               <div className="empty-state">
                 <div className="empty-icon">🔍</div>
                 <div className="empty-title">No document loaded</div>
-                <div className="empty-sub">Upload a PDF from the sidebar and start asking questions about its content.</div>
+                <div className="empty-sub">Upload a PDF and start asking questions about its content.</div>
               </div>
             )}
-
             {messages.map((msg, i) => (
               <div key={i} className={`msg-row ${msg.role}`}>
                 <div className={`msg-bubble ${msg.role}`}>{msg.text}</div>
-
                 {msg.sources && msg.sources.length > 0 && (
                   <>
                     <button className="sources-toggle" onClick={() => toggleSources(i)}>
@@ -619,7 +491,6 @@ export default function App() {
                 )}
               </div>
             ))}
-
             {loading && (
               <div className="msg-row assistant">
                 <div className="typing">
@@ -627,14 +498,12 @@ export default function App() {
                 </div>
               </div>
             )}
-
             <div ref={chatEndRef} />
           </div>
 
           <div className="input-area">
             <div className="input-wrap">
               <input
-                ref={inputRef}
                 value={question}
                 onChange={e => setQuestion(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && askQuestion()}
