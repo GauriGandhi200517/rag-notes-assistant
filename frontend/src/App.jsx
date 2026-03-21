@@ -20,7 +20,7 @@ export default function App() {
   }, [messages, loading]);
 
   async function uploadPDF() {
-    if (!file) return alert("Please select a PDF first!");
+    if (!file) return alert("Please select a file first!");
     setUploading(true);
     const form = new FormData();
     form.append("file", file);
@@ -31,17 +31,17 @@ export default function App() {
       setDocName(file.name);
       setMessages([{
         role: "system",
-        text: `Document ready! Ask me anything about "${file.name}".`
+        text: `Document ready! Ask me anything about "${file.name}". 📄`
       }]);
     } catch (e) {
-      alert("Error uploading PDF. Make sure the server is running.");
+      alert("Error uploading file. Make sure the server is running.");
     }
     setUploading(false);
   }
 
   async function askQuestion() {
     if (!question.trim() || loading) return;
-    if (!indexed) return alert("Please upload a PDF first!");
+    if (!indexed) return alert("Please upload a file first!");
     const userMsg = { role: "user", text: question };
     setMessages(prev => [...prev, userMsg]);
     setQuestion("");
@@ -67,17 +67,17 @@ export default function App() {
     setExpandedSources(prev => ({ ...prev, [i]: !prev[i] }));
   }
 
+  const isImage = file && ["jpg", "jpeg", "png", "webp"].includes(file.name.split(".").pop().toLowerCase());
+
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
-        
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #080c14; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; }
-
         .app {
           display: flex;
           height: 100vh;
@@ -136,6 +136,21 @@ export default function App() {
           display: flex;
           align-items: center;
           gap: 6px;
+        }
+        .file-type-badges {
+          display: flex;
+          gap: 6px;
+          justify-content: center;
+          margin-top: 10px;
+          flex-wrap: wrap;
+        }
+        .badge {
+          background: #0d1f3c;
+          border: 1px solid #1e3a5f;
+          color: #4a6080;
+          padding: 3px 8px;
+          border-radius: 20px;
+          font-size: 11px;
         }
         .upload-btn {
           width: 100%;
@@ -232,7 +247,22 @@ export default function App() {
         }
         .empty-icon { font-size: 56px; }
         .empty-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: #1e3a5f; }
-        .empty-sub { font-size: 14px; color: #162032; max-width: 280px; line-height: 1.6; }
+        .empty-sub { font-size: 14px; color: #162032; max-width: 300px; line-height: 1.6; }
+        .empty-features {
+          display: flex;
+          gap: 12px;
+          margin-top: 8px;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+        .empty-feature {
+          background: #0d1421;
+          border: 1px solid #111d2e;
+          padding: 8px 14px;
+          border-radius: 20px;
+          font-size: 13px;
+          color: #2a4060;
+        }
         .msg-row { display: flex; flex-direction: column; }
         .msg-row.user { align-items: flex-end; }
         .msg-row.assistant { align-items: flex-start; }
@@ -355,7 +385,7 @@ export default function App() {
           font-size: 18px;
           flex-shrink: 0;
         }
-        .send-btn:hover:not(:disabled) { background: linear-gradient(135deg, #2563eb, #3b82f6); transform: scale(1.05); }
+        .send-btn:hover:not(:disabled) { transform: scale(1.05); }
         .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .uploading-bar {
           display: flex;
@@ -374,9 +404,9 @@ export default function App() {
           border-top-color: #3b82f6;
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
+          flex-shrink: 0;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-
         @media (max-width: 768px) {
           .app { flex-direction: column; height: 100dvh; }
           .sidebar {
@@ -392,10 +422,11 @@ export default function App() {
           }
           .logo { display: none; }
           .logo-sub { display: none; }
-          .upload-zone { padding: 10px !important; flex: 1; min-width: 160px; }
+          .upload-zone { padding: 10px !important; flex: 1; min-width: 140px; }
           .upload-icon { font-size: 18px !important; margin-bottom: 4px !important; }
           .upload-text { font-size: 11px !important; }
-          .upload-btn { width: auto !important; padding: 10px 16px !important; white-space: nowrap; }
+          .file-type-badges { display: none; }
+          .upload-btn { width: auto !important; padding: 10px 16px !important; white-space: nowrap; font-size: 13px !important; }
           .doc-card { display: none !important; }
           .clear-btn { display: none !important; }
           .uploading-bar { font-size: 11px !important; }
@@ -405,6 +436,7 @@ export default function App() {
           .chat-header { padding: 14px 16px !important; }
           .input-area { padding: 12px 16px !important; }
           .input-wrap input { font-size: 14px !important; }
+          .empty-features { display: none; }
         }
       `}</style>
 
@@ -414,36 +446,57 @@ export default function App() {
             <div className="logo">RAG<span>.</span>AI</div>
             <div className="logo-sub">Document Intelligence</div>
           </div>
+
           <div className="upload-zone" onClick={() => fileInputRef.current.click()}>
-            <div className="upload-icon">📎</div>
+            <div className="upload-icon">{isImage ? "🖼️" : "📎"}</div>
             <div className="upload-text">
-              <strong>Click to upload</strong> PDF
+              <strong>Click to upload</strong><br />
+              PDF or photo of notes 📸
               {file && (
                 <div className="file-selected">
-                  📄 {file.name.slice(0, 20)}{file.name.length > 20 ? "..." : ""}
+                  {isImage ? "🖼️" : "📄"} {file.name.slice(0, 22)}{file.name.length > 22 ? "..." : ""}
                 </div>
               )}
             </div>
+            <div className="file-type-badges">
+              <span className="badge">📄 PDF</span>
+              <span className="badge">📸 JPG</span>
+              <span className="badge">🖼️ PNG</span>
+            </div>
           </div>
-          <input ref={fileInputRef} type="file" accept=".pdf" onChange={e => setFile(e.target.files[0])} style={{ display: "none" }} />
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.webp"
+            onChange={e => setFile(e.target.files[0])}
+            style={{ display: "none" }}
+          />
+
           {uploading && (
             <div className="uploading-bar">
-              <div className="spinner" /> Processing...
+              <div className="spinner" />
+              {isImage ? "Reading handwritten notes..." : "Processing document..."}
             </div>
           )}
+
           <button className="upload-btn" onClick={uploadPDF} disabled={!file || uploading}>
             {uploading ? "Indexing..." : "Upload & Index"}
           </button>
+
           {indexed && (
             <div className="doc-card">
               <div className="doc-card-label">Active Document</div>
               <div className="doc-card-name">{docName}</div>
               <div className="doc-card-status">
-                <div className="status-dot" /> Ready
+                <div className="status-dot" /> Ready to answer
               </div>
             </div>
           )}
-          <button className="clear-btn" onClick={() => { setMessages([]); setIndexed(false); setFile(null); setDocName(""); }}>
+
+          <button className="clear-btn" onClick={() => {
+            setMessages([]); setIndexed(false); setFile(null); setDocName("");
+          }}>
             Clear conversation
           </button>
         </div>
@@ -452,10 +505,14 @@ export default function App() {
           <div className="chat-header">
             <div>
               <div className="chat-title">Chat with your document</div>
-              <div className="chat-subtitle">{indexed ? `📄 ${docName}` : "Upload a PDF to begin"}</div>
+              <div className="chat-subtitle">
+                {indexed ? `📄 ${docName}` : "Upload a PDF or photo of notes to begin"}
+              </div>
             </div>
             {indexed && (
-              <button className="clear-btn" style={{ marginTop: 0 }} onClick={() => { setMessages([]); setIndexed(false); setFile(null); setDocName(""); }}>
+              <button className="clear-btn" style={{ marginTop: 0 }} onClick={() => {
+                setMessages([]); setIndexed(false); setFile(null); setDocName("");
+              }}>
                 New chat
               </button>
             )}
@@ -466,9 +523,18 @@ export default function App() {
               <div className="empty-state">
                 <div className="empty-icon">🔍</div>
                 <div className="empty-title">No document loaded</div>
-                <div className="empty-sub">Upload a PDF and start asking questions about its content.</div>
+                <div className="empty-sub">
+                  Upload a PDF or a photo of your handwritten notes and ask me anything!
+                </div>
+                <div className="empty-features">
+                  <span className="empty-feature">📄 PDF documents</span>
+                  <span className="empty-feature">📸 Handwritten notes</span>
+                  <span className="empty-feature">🔍 Smart search</span>
+                  <span className="empty-feature">📌 Page citations</span>
+                </div>
               </div>
             )}
+
             {messages.map((msg, i) => (
               <div key={i} className={`msg-row ${msg.role}`}>
                 <div className={`msg-bubble ${msg.role}`}>{msg.text}</div>
@@ -491,6 +557,7 @@ export default function App() {
                 )}
               </div>
             ))}
+
             {loading && (
               <div className="msg-row assistant">
                 <div className="typing">
@@ -507,11 +574,15 @@ export default function App() {
                 value={question}
                 onChange={e => setQuestion(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && askQuestion()}
-                placeholder={indexed ? "Ask anything about your document..." : "Upload a PDF first..."}
+                placeholder={indexed ? "Ask anything about your document..." : "Upload a file first..."}
                 disabled={!indexed || loading}
               />
             </div>
-            <button className="send-btn" onClick={askQuestion} disabled={!indexed || loading || !question.trim()}>
+            <button
+              className="send-btn"
+              onClick={askQuestion}
+              disabled={!indexed || loading || !question.trim()}
+            >
               ➤
             </button>
           </div>
