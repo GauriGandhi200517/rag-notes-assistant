@@ -8,185 +8,646 @@ export default function App() {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [indexed, setIndexed] = useState(false);
+  const [docName, setDocName] = useState("");
+  const [expandedSources, setExpandedSources] = useState({});
   const chatEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, loading]);
 
   async function uploadPDF() {
     if (!file) return alert("Please select a PDF first!");
-    setLoading(true);
-    setStatus("Uploading PDF...");
+    setUploading(true);
     const form = new FormData();
     form.append("file", file);
     try {
       await axios.post(`${API}/ingest`, form);
-      setStatus("Building index...");
       await axios.post(`${API}/build-index`);
-      setStatus("");
       setIndexed(true);
-      setMessages(prev => [...prev, {
+      setDocName(file.name);
+      setMessages([{
         role: "system",
-        text: `✅ "${file.name}" uploaded and indexed! You can now ask questions.`
+        text: `Document ready! Ask me anything about "${file.name}".`
       }]);
     } catch (e) {
-      setStatus("Error uploading PDF. Make sure the server is running.");
+      alert("Error uploading PDF. Make sure the server is running.");
     }
-    setLoading(false);
+    setUploading(false);
   }
 
   async function askQuestion() {
-    if (!question.trim()) return;
+    if (!question.trim() || loading) return;
     if (!indexed) return alert("Please upload a PDF first!");
-    
     const userMsg = { role: "user", text: question };
     setMessages(prev => [...prev, userMsg]);
     setQuestion("");
     setLoading(true);
-
     try {
       const res = await axios.post(`${API}/chat?question=${encodeURIComponent(userMsg.text)}`);
-      const botMsg = {
+      setMessages(prev => [...prev, {
         role: "assistant",
         text: res.data.answer,
         sources: res.data.sources
-      };
-      setMessages(prev => [...prev, botMsg]);
+      }]);
     } catch (e) {
       setMessages(prev => [...prev, {
         role: "assistant",
-        text: "Sorry, I couldn't get an answer. Please try again."
+        text: "Something went wrong. Please try again.",
+        sources: []
       }]);
     }
     setLoading(false);
   }
 
-  function clearHistory() {
-    setMessages([]);
-    setIndexed(false);
-    setFile(null);
-    setStatus("");
+  function toggleSources(i) {
+    setExpandedSources(prev => ({ ...prev, [i]: !prev[i] }));
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#0f172a", color: "#e2e8f0", fontFamily: "sans-serif" }}>
-      
-      {/* Header */}
-      <div style={{ background: "#1e293b", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #334155" }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, color: "#60a5fa" }}>📄 RAG Notes Assistant</h1>
-          <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>Chat with your PDFs using AI</p>
-        </div>
-        <button onClick={clearHistory} style={{ background: "#ef4444", color: "white", border: "none", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>
-          Clear Chat
-        </button>
-      </div>
-
-      {/* Upload Bar */}
-      <div style={{ background: "#1e293b", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #334155" }}>
-        <input
-          type="file"
-          accept=".pdf"
-          onChange={e => setFile(e.target.files[0])}
-          style={{ color: "#94a3b8", fontSize: 13 }}
-        />
-        <button
-          onClick={uploadPDF}
-          disabled={loading}
-          style={{ background: "#2563eb", color: "white", border: "none", padding: "8px 20px", borderRadius: 8, cursor: "pointer", fontSize: 14, whiteSpace: "nowrap" }}
-        >
-          {loading && !indexed ? "Processing..." : "Upload & Index"}
-        </button>
-        {status && <span style={{ color: "#34d399", fontSize: 13 }}>{status}</span>}
-        {indexed && <span style={{ color: "#34d399", fontSize: 13 }}>✅ Ready</span>}
-      </div>
-
-      {/* Chat Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
         
-        {messages.length === 0 && (
-          <div style={{ textAlign: "center", color: "#475569", marginTop: 60 }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>📄</div>
-            <p style={{ fontSize: 18 }}>Upload a PDF to get started</p>
-            <p style={{ fontSize: 14 }}>Ask any question about your document</p>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { background: #080c14; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; }
+
+        .app {
+          display: flex;
+          height: 100vh;
+          font-family: 'DM Sans', sans-serif;
+          background: #080c14;
+          color: #e8edf5;
+          overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+          width: 300px;
+          min-width: 300px;
+          background: #0d1421;
+          border-right: 1px solid #111d2e;
+          display: flex;
+          flex-direction: column;
+          padding: 28px 20px;
+          gap: 24px;
+        }
+
+        .logo {
+          font-family: 'Syne', sans-serif;
+          font-weight: 800;
+          font-size: 22px;
+          color: #e8edf5;
+          letter-spacing: -0.5px;
+          line-height: 1.2;
+        }
+
+        .logo span {
+          color: #3b82f6;
+        }
+
+        .logo-sub {
+          font-family: 'DM Sans', sans-serif;
+          font-weight: 300;
+          font-size: 12px;
+          color: #4a6080;
+          margin-top: 4px;
+          letter-spacing: 0.5px;
+        }
+
+        .upload-zone {
+          border: 1.5px dashed #1e3a5f;
+          border-radius: 14px;
+          padding: 20px;
+          text-align: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          background: #0a1628;
+        }
+
+        .upload-zone:hover {
+          border-color: #3b82f6;
+          background: #0d1f3c;
+        }
+
+        .upload-icon {
+          font-size: 28px;
+          margin-bottom: 8px;
+        }
+
+        .upload-text {
+          font-size: 13px;
+          color: #4a6080;
+          line-height: 1.5;
+        }
+
+        .upload-text strong {
+          color: #3b82f6;
+          font-weight: 500;
+        }
+
+        .file-selected {
+          margin-top: 10px;
+          background: #0d1f3c;
+          border-radius: 8px;
+          padding: 8px 12px;
+          font-size: 12px;
+          color: #60a5fa;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .upload-btn {
+          width: 100%;
+          background: linear-gradient(135deg, #1d4ed8, #2563eb);
+          color: white;
+          border: none;
+          padding: 12px;
+          border-radius: 10px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+          letter-spacing: 0.3px;
+        }
+
+        .upload-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #2563eb, #3b82f6);
+          transform: translateY(-1px);
+        }
+
+        .upload-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .doc-card {
+          background: #0a1628;
+          border: 1px solid #111d2e;
+          border-radius: 12px;
+          padding: 14px;
+        }
+
+        .doc-card-label {
+          font-size: 10px;
+          color: #4a6080;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+
+        .doc-card-name {
+          font-size: 13px;
+          color: #60a5fa;
+          font-weight: 500;
+          word-break: break-all;
+        }
+
+        .doc-card-status {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 8px;
+          font-size: 11px;
+          color: #34d399;
+        }
+
+        .status-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #34d399;
+          animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+
+        .clear-btn {
+          margin-top: auto;
+          background: transparent;
+          border: 1px solid #1e3a5f;
+          color: #4a6080;
+          padding: 10px;
+          border-radius: 10px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .clear-btn:hover {
+          border-color: #ef4444;
+          color: #ef4444;
+          background: #1a0a0a;
+        }
+
+        /* Main chat area */
+        .main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .chat-header {
+          padding: 20px 32px;
+          border-bottom: 1px solid #111d2e;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .chat-title {
+          font-family: 'Syne', sans-serif;
+          font-size: 16px;
+          font-weight: 600;
+          color: #e8edf5;
+        }
+
+        .chat-subtitle {
+          font-size: 12px;
+          color: #4a6080;
+          margin-top: 2px;
+        }
+
+        .messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 32px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .empty-state {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          color: #1e3a5f;
+          padding: 40px;
+          text-align: center;
+        }
+
+        .empty-icon {
+          font-size: 56px;
+          filter: grayscale(0.3);
+        }
+
+        .empty-title {
+          font-family: 'Syne', sans-serif;
+          font-size: 20px;
+          font-weight: 700;
+          color: #1e3a5f;
+        }
+
+        .empty-sub {
+          font-size: 14px;
+          color: #162032;
+          max-width: 280px;
+          line-height: 1.6;
+        }
+
+        /* Messages */
+        .msg-row {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .msg-row.user { align-items: flex-end; }
+        .msg-row.assistant { align-items: flex-start; }
+        .msg-row.system { align-items: center; }
+
+        .msg-bubble {
+          max-width: 68%;
+          padding: 14px 18px;
+          border-radius: 18px;
+          font-size: 15px;
+          line-height: 1.65;
+        }
+
+        .msg-bubble.user {
+          background: linear-gradient(135deg, #1d4ed8, #2563eb);
+          color: white;
+          border-radius: 18px 18px 4px 18px;
+          font-weight: 400;
+        }
+
+        .msg-bubble.assistant {
+          background: #0d1421;
+          border: 1px solid #111d2e;
+          color: #d1d9e6;
+          border-radius: 18px 18px 18px 4px;
+        }
+
+        .msg-bubble.system {
+          background: #0a1f0f;
+          border: 1px solid #14532d;
+          color: #4ade80;
+          font-size: 13px;
+          padding: 10px 16px;
+          border-radius: 20px;
+          max-width: 100%;
+        }
+
+        .sources-toggle {
+          margin-top: 10px;
+          background: transparent;
+          border: 1px solid #1e3a5f;
+          color: #4a6080;
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: 'DM Sans', sans-serif;
+        }
+
+        .sources-toggle:hover {
+          border-color: #7c3aed;
+          color: #a78bfa;
+        }
+
+        .sources-list {
+          margin-top: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          max-width: 68%;
+        }
+
+        .source-item {
+          background: #0a1628;
+          border: 1px solid #111d2e;
+          border-left: 3px solid #7c3aed;
+          padding: 10px 14px;
+          border-radius: 8px;
+          font-size: 12px;
+        }
+
+        .source-item-title {
+          color: #a78bfa;
+          font-weight: 500;
+          margin-bottom: 4px;
+        }
+
+        .source-item-text {
+          color: #4a6080;
+          line-height: 1.5;
+        }
+
+        .typing {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 14px 18px;
+          background: #0d1421;
+          border: 1px solid #111d2e;
+          border-radius: 18px 18px 18px 4px;
+          width: fit-content;
+        }
+
+        .dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #3b82f6;
+          animation: bounce 1.2s infinite;
+        }
+
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+          30% { transform: translateY(-6px); opacity: 1; }
+        }
+
+        /* Input */
+        .input-area {
+          padding: 20px 32px;
+          border-top: 1px solid #111d2e;
+          display: flex;
+          gap: 12px;
+          align-items: flex-end;
+        }
+
+        .input-wrap {
+          flex: 1;
+          background: #0d1421;
+          border: 1px solid #1e3a5f;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          padding: 4px 4px 4px 16px;
+          transition: border-color 0.2s;
+        }
+
+        .input-wrap:focus-within {
+          border-color: #3b82f6;
+        }
+
+        .input-wrap input {
+          flex: 1;
+          background: transparent;
+          border: none;
+          color: #e8edf5;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 15px;
+          padding: 10px 0;
+          outline: none;
+        }
+
+        .input-wrap input::placeholder {
+          color: #2a4060;
+        }
+
+        .send-btn {
+          background: linear-gradient(135deg, #1d4ed8, #2563eb);
+          border: none;
+          color: white;
+          width: 42px;
+          height: 42px;
+          border-radius: 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+          font-size: 18px;
+          flex-shrink: 0;
+        }
+
+        .send-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #2563eb, #3b82f6);
+          transform: scale(1.05);
+        }
+
+        .send-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .uploading-bar {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 14px;
+          background: #0a1f3c;
+          border-radius: 10px;
+          font-size: 13px;
+          color: #60a5fa;
+        }
+
+        .spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid #1e3a5f;
+          border-top-color: #3b82f6;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
+
+      <div className="app">
+        {/* Sidebar */}
+        <div className="sidebar">
+          <div>
+            <div className="logo">RAG<span>.</span>AI</div>
+            <div className="logo-sub">Document Intelligence</div>
           </div>
-        )}
 
-        {messages.map((msg, i) => (
-          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
-            
-            {/* System message */}
-            {msg.role === "system" && (
-              <div style={{ background: "#164e63", color: "#67e8f9", padding: "10px 16px", borderRadius: 12, fontSize: 14, maxWidth: "80%" }}>
-                {msg.text}
+          <div>
+            <div className="upload-zone" onClick={() => fileInputRef.current.click()}>
+              <div className="upload-icon">📎</div>
+              <div className="upload-text">
+                <strong>Click to upload</strong> your PDF<br />
+                or drag and drop
               </div>
-            )}
-
-            {/* User message */}
-            {msg.role === "user" && (
-              <div style={{ background: "#2563eb", color: "white", padding: "12px 16px", borderRadius: "18px 18px 4px 18px", maxWidth: "70%", fontSize: 15 }}>
-                {msg.text}
-              </div>
-            )}
-
-            {/* Assistant message */}
-            {msg.role === "assistant" && (
-              <div style={{ maxWidth: "80%" }}>
-                <div style={{ background: "#1e293b", border: "1px solid #334155", padding: "14px 18px", borderRadius: "18px 18px 18px 4px", fontSize: 15, lineHeight: 1.7, color: "#e2e8f0" }}>
-                  {msg.text}
+              {file && (
+                <div className="file-selected">
+                  📄 {file.name.slice(0, 24)}{file.name.length > 24 ? "..." : ""}
                 </div>
-
-                {/* Sources */}
-                {msg.sources && msg.sources.length > 0 && (
-                  <div style={{ marginTop: 8 }}>
-                    <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0" }}>Sources:</p>
-                    {msg.sources.slice(0, 3).map((s, j) => (
-                      <div key={j} style={{ background: "#0f172a", border: "1px solid #334155", borderLeft: "3px solid #7c3aed", padding: "8px 12px", borderRadius: 8, marginBottom: 6, fontSize: 12, color: "#94a3b8" }}>
-                        <strong style={{ color: "#a78bfa" }}>{s.doc_name}</strong> — Page {s.page}
-                        <p style={{ margin: "4px 0 0", color: "#64748b" }}>{s.snippet.slice(0, 120)}...</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
+            <input ref={fileInputRef} type="file" accept=".pdf" onChange={e => setFile(e.target.files[0])} style={{ display: "none" }} />
           </div>
-        ))}
 
-        {/* Loading indicator */}
-        {loading && indexed && (
-          <div style={{ display: "flex", alignItems: "flex-start" }}>
-            <div style={{ background: "#1e293b", border: "1px solid #334155", padding: "14px 18px", borderRadius: "18px 18px 18px 4px", color: "#64748b", fontSize: 15 }}>
-              Thinking...
+          {uploading && (
+            <div className="uploading-bar">
+              <div className="spinner" />
+              Processing document...
+            </div>
+          )}
+
+          <button className="upload-btn" onClick={uploadPDF} disabled={!file || uploading}>
+            {uploading ? "Indexing..." : "Upload & Index PDF"}
+          </button>
+
+          {indexed && (
+            <div className="doc-card">
+              <div className="doc-card-label">Active Document</div>
+              <div className="doc-card-name">{docName}</div>
+              <div className="doc-card-status">
+                <div className="status-dot" />
+                Ready to answer
+              </div>
+            </div>
+          )}
+
+          <button className="clear-btn" onClick={() => { setMessages([]); setIndexed(false); setFile(null); setDocName(""); }}>
+            Clear conversation
+          </button>
+        </div>
+
+        {/* Main */}
+        <div className="main">
+          <div className="chat-header">
+            <div>
+              <div className="chat-title">Chat with your document</div>
+              <div className="chat-subtitle">{indexed ? `Chatting with: ${docName}` : "Upload a PDF to begin"}</div>
             </div>
           </div>
-        )}
 
-        <div ref={chatEndRef} />
-      </div>
+          <div className="messages">
+            {messages.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-icon">🔍</div>
+                <div className="empty-title">No document loaded</div>
+                <div className="empty-sub">Upload a PDF from the sidebar and start asking questions about its content.</div>
+              </div>
+            )}
 
-      {/* Input Bar */}
-      <div style={{ background: "#1e293b", padding: "16px 24px", borderTop: "1px solid #334155", display: "flex", gap: 12 }}>
-        <input
-          type="text"
-          value={question}
-          onChange={e => setQuestion(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && !loading && askQuestion()}
-          placeholder={indexed ? "Ask a question about your PDF..." : "Upload a PDF first..."}
-          disabled={!indexed || loading}
-          style={{ flex: 1, background: "#0f172a", border: "1px solid #334155", color: "#e2e8f0", padding: "12px 16px", borderRadius: 12, fontSize: 15, outline: "none" }}
-        />
-        <button
-          onClick={askQuestion}
-          disabled={!indexed || loading}
-          style={{ background: indexed ? "#2563eb" : "#334155", color: "white", border: "none", padding: "12px 24px", borderRadius: 12, cursor: indexed ? "pointer" : "not-allowed", fontSize: 15 }}
-        >
-          {loading ? "..." : "Send"}
-        </button>
+            {messages.map((msg, i) => (
+              <div key={i} className={`msg-row ${msg.role}`}>
+                <div className={`msg-bubble ${msg.role}`}>{msg.text}</div>
+
+                {msg.sources && msg.sources.length > 0 && (
+                  <>
+                    <button className="sources-toggle" onClick={() => toggleSources(i)}>
+                      {expandedSources[i] ? "▲ Hide" : "▼ Show"} {msg.sources.length} sources
+                    </button>
+                    {expandedSources[i] && (
+                      <div className="sources-list">
+                        {msg.sources.slice(0, 3).map((s, j) => (
+                          <div key={j} className="source-item">
+                            <div className="source-item-title">📄 {s.doc_name} — Page {s.page}</div>
+                            <div className="source-item-text">{s.snippet.slice(0, 150)}...</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+
+            {loading && (
+              <div className="msg-row assistant">
+                <div className="typing">
+                  <div className="dot" /><div className="dot" /><div className="dot" />
+                </div>
+              </div>
+            )}
+
+            <div ref={chatEndRef} />
+          </div>
+
+          <div className="input-area">
+            <div className="input-wrap">
+              <input
+                ref={inputRef}
+                value={question}
+                onChange={e => setQuestion(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && askQuestion()}
+                placeholder={indexed ? "Ask anything about your document..." : "Upload a PDF first..."}
+                disabled={!indexed || loading}
+              />
+            </div>
+            <button className="send-btn" onClick={askQuestion} disabled={!indexed || loading || !question.trim()}>
+              ➤
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
