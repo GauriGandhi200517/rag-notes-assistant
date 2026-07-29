@@ -4,6 +4,14 @@ import shutil, tempfile, os
 
 app = FastAPI()
 
+@app.get("/")
+def root():
+    return {
+        "message": "RAG Notes Assistant API is running 🚀",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
